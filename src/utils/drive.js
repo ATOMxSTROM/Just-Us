@@ -174,7 +174,12 @@ export async function uploadMedia(file, dateStr) {
     resource: { role: 'reader', type: 'anyone' },
   });
 
-  return { id, type: isVideo ? 'video' : 'image' };
+  // Store the public URL directly — no API call needed when displaying
+  const url = isVideo
+    ? `https://drive.google.com/file/d/${id}/preview`
+    : `https://drive.google.com/uc?export=view&id=${id}`;
+
+  return { id, type: isVideo ? 'video' : 'image', url };
 }
 
 export async function savePost(postData) {
@@ -261,20 +266,10 @@ export function getVideoEmbedUrl(id) {
   return `https://drive.google.com/file/d/${id}/preview`;
 }
 
-// In-memory cache: fileId → blob URL (lives for the session)
-const imageCache = new Map();
-
-export async function getImageDisplayUrl(id) {
-  if (imageCache.has(id)) return imageCache.get(id);
-  await refreshIfNeeded();
-  const token = localStorage.getItem('drive_token');
-  const res = await fetch(`https://www.googleapis.com/drive/v3/files/${id}?alt=media`, {
-    headers: { Authorization: `Bearer ${token}` },
-  });
-  if (!res.ok) throw new Error(`Image fetch failed: ${res.status}`);
-  const url = URL.createObjectURL(await res.blob());
-  imageCache.set(id, url);
-  return url;
+// Stable public URL for a Drive file (must have public reader permission)
+export function getPublicUrl(id, type) {
+  if (type === 'video') return `https://drive.google.com/file/d/${id}/preview`;
+  return `https://drive.google.com/uc?export=view&id=${id}`;
 }
 
 export function hasFolderConfigured() {

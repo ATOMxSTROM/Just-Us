@@ -1,23 +1,26 @@
-import { useRef, useState, useEffect } from 'react';
+import { useRef, useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { usePosts } from '../context/PostsContext';
-import { getImageDisplayUrl, getVideoEmbedUrl } from '../utils/drive';
+import { getPublicUrl } from '../utils/drive';
 
-function DriveImage({ id, alt }) {
-  const [src, setSrc] = useState(null);
+function DriveImage({ src, alt }) {
+  const [loaded, setLoaded] = useState(false);
   const [error, setError] = useState(false);
 
-  useEffect(() => {
-    let cancelled = false;
-    getImageDisplayUrl(id)
-      .then((url) => { if (!cancelled) setSrc(url); })
-      .catch(() => { if (!cancelled) setError(true); });
-    return () => { cancelled = true; };
-  }, [id]);
-
   if (error) return <div className="img-error">Could not load image</div>;
-  if (!src)  return <div className="img-skeleton" />;
-  return <img src={src} alt={alt || 'memory'} className="carousel-photo" />;
+  return (
+    <div className="drive-img-wrap">
+      {!loaded && <div className="img-skeleton" />}
+      <img
+        src={src}
+        alt={alt || 'memory'}
+        className="carousel-photo"
+        style={{ opacity: loaded ? 1 : 0 }}
+        onLoad={() => setLoaded(true)}
+        onError={() => setError(true)}
+      />
+    </div>
+  );
 }
 
 const DISPLAY_NAMES = { him: 'Him', susmitha: 'Susmitha' };
@@ -36,7 +39,7 @@ export default function PostCard({ post }) {
   const mediaItems = post.mediaItems?.length
     ? post.mediaItems
     : post.photoId
-      ? [{ id: post.photoId, type: 'image' }]
+      ? [{ id: post.photoId, type: 'image', url: getPublicUrl(post.photoId, 'image') }]
       : [];
 
   const memoryDate = post.date
@@ -80,14 +83,17 @@ export default function PostCard({ post }) {
               <div key={i} className="carousel-slide">
                 {item.type === 'video' ? (
                   <iframe
-                    src={getVideoEmbedUrl(item.id)}
+                    src={item.url || getPublicUrl(item.id, 'video')}
                     className="carousel-video"
                     allow="autoplay"
                     allowFullScreen
                     title={`video ${i + 1}`}
                   />
                 ) : (
-                  <DriveImage id={item.id} alt={post.caption} />
+                  <DriveImage
+                    src={item.url || getPublicUrl(item.id, 'image')}
+                    alt={post.caption}
+                  />
                 )}
               </div>
             ))}
